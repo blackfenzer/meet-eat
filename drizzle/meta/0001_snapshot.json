@@ -1,0 +1,188 @@
+{
+  "id": "cb52de2e-7ef6-4018-b79e-8d1544f7da22",
+  "prevId": "bd5d125a-b2d3-4803-a6d7-f66d4331dc3d",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.participants": {
+      "name": "participants",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "pin": {
+          "name": "pin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_admin": {
+          "name": "is_admin",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "participants_session_lower_name_unique": {
+          "name": "participants_session_lower_name_unique",
+          "columns": [
+            {
+              "expression": "session_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"name\")",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "participants_session_id_sessions_id_fk": {
+          "name": "participants_session_id_sessions_id_fk",
+          "tableFrom": "participants",
+          "tableTo": "sessions",
+          "columnsFrom": [
+            "session_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sessions": {
+      "name": "sessions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "admin_token": {
+          "name": "admin_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_range_start": {
+          "name": "date_range_start",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date_range_end": {
+          "name": "date_range_end",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_start_minutes": {
+          "name": "daily_start_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "daily_end_minutes": {
+          "name": "daily_end_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_participants": {
+          "name": "max_participants",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "anonymous_mode": {
+          "name": "anonymous_mode",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'open'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
