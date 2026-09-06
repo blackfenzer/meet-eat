@@ -37,7 +37,7 @@
 **Interfaces:**
 - Produces: a working `npm run dev` / `npm run build` / `npm test` toolchain that every later task relies on.
 
-- [ ] **Step 1: Create `.gitignore`**
+- [x] **Step 1: Create `.gitignore`**
 
 ```
 node_modules
@@ -48,7 +48,7 @@ dist
 *.tsbuildinfo
 ```
 
-- [ ] **Step 2: Create minimal `package.json`**
+- [x] **Step 2: Create minimal `package.json`**
 
 ```json
 {
@@ -65,14 +65,14 @@ dist
 }
 ```
 
-- [ ] **Step 3: Install dependencies**
+- [x] **Step 3: Install dependencies**
 
 Run: `npm install next@latest react@latest react-dom@latest`
 Run: `npm install -D typescript @types/react @types/node @types/react-dom vitest`
 
 Expected: both commands exit 0 and `package.json` now lists these under `dependencies`/`devDependencies` with resolved versions.
 
-- [ ] **Step 4: Create `tsconfig.json`**
+- [x] **Step 4: Create `tsconfig.json`**
 
 ```json
 {
@@ -98,7 +98,7 @@ Expected: both commands exit 0 and `package.json` now lists these under `depende
 }
 ```
 
-- [ ] **Step 5: Create `next.config.ts`**
+- [x] **Step 5: Create `next.config.ts`**
 
 ```ts
 import type { NextConfig } from "next";
@@ -108,7 +108,7 @@ const nextConfig: NextConfig = {};
 export default nextConfig;
 ```
 
-- [ ] **Step 6: Create `src/app/globals.css`**
+- [x] **Step 6: Create `src/app/globals.css`**
 
 ```css
 :root {
@@ -124,7 +124,7 @@ body {
 }
 ```
 
-- [ ] **Step 7: Create `src/app/layout.tsx`**
+- [x] **Step 7: Create `src/app/layout.tsx`**
 
 ```tsx
 import type { Metadata } from "next";
@@ -148,7 +148,7 @@ export default function RootLayout({
 }
 ```
 
-- [ ] **Step 8: Create `src/app/page.tsx`**
+- [x] **Step 8: Create `src/app/page.tsx`**
 
 ```tsx
 export default function Home() {
@@ -160,7 +160,7 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 9: Create `vitest.config.ts`**
+- [x] **Step 9: Create `vitest.config.ts`**
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -172,7 +172,7 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 10: Write a sanity test (`src/lib/sanity.test.ts`)**
+- [x] **Step 10: Write a sanity test (`src/lib/sanity.test.ts`)**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -184,17 +184,17 @@ describe("test harness", () => {
 });
 ```
 
-- [ ] **Step 11: Run the test to verify it passes**
+- [x] **Step 11: Run the test to verify it passes**
 
 Run: `npx vitest run`
 Expected: PASS — 1 test passed.
 
-- [ ] **Step 12: Verify the app builds**
+- [x] **Step 12: Verify the app builds**
 
 Run: `npm run build`
 Expected: `Compiled successfully`, no type errors.
 
-- [ ] **Step 13: Commit**
+- [x] **Step 13: Commit**
 
 ```bash
 git add package.json package-lock.json tsconfig.json next.config.ts src/app vitest.config.ts .gitignore
@@ -216,7 +216,7 @@ git commit -m "chore: scaffold Next.js app with test harness"
 - Consumes: `src/app/globals.css` from Task 1
 - Produces: Tailwind utility classes `bg-maroon`, `bg-brick`, `bg-cream`, `bg-taupe`, `bg-umber` (and their `text-*`/`border-*` equivalents) available anywhere in the app via Tailwind v4's `@theme` color tokens.
 
-- [ ] **Step 1: Write the failing test (`src/app/globals.test.ts`)**
+- [x] **Step 1: Write the failing test (`src/app/globals.test.ts`)**
 
 ```ts
 import { readFileSync } from "node:fs";
@@ -237,16 +237,16 @@ describe("theme tokens", () => {
 });
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `npx vitest run src/app/globals.test.ts`
 Expected: FAIL — `globals.css` doesn't contain the tokens yet.
 
-- [ ] **Step 3: Install Tailwind v4**
+- [x] **Step 3: Install Tailwind v4**
 
 Run: `npm install tailwindcss @tailwindcss/postcss`
 
-- [ ] **Step 4: Create `postcss.config.mjs`**
+- [x] **Step 4: Create `postcss.config.mjs`**
 
 ```js
 export default {
@@ -256,7 +256,7 @@ export default {
 };
 ```
 
-- [ ] **Step 5: Update `src/app/globals.css`**
+- [x] **Step 5: Update `src/app/globals.css`**
 
 ```css
 @import "tailwindcss";
@@ -280,12 +280,12 @@ body {
 }
 ```
 
-- [ ] **Step 6: Run test to verify it passes**
+- [x] **Step 6: Run test to verify it passes**
 
 Run: `npx vitest run src/app/globals.test.ts`
 Expected: PASS — all 5 cases pass.
 
-- [ ] **Step 7: Update `src/app/page.tsx` to render swatches (visual smoke check)**
+- [x] **Step 7: Update `src/app/page.tsx` to render swatches (visual smoke check)**
 
 ```tsx
 const swatches = [
@@ -315,12 +315,12 @@ export default function Home() {
 }
 ```
 
-- [ ] **Step 8: Run the dev server and verify in browser**
+- [x] **Step 8: Run the dev server and verify in browser**
 
 Run: `npm run dev`
 Open `http://localhost:3000` and confirm five distinct color swatches render in the maroon/brick/cream/taupe/umber palette, then stop the dev server.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add package.json package-lock.json postcss.config.mjs src/app/globals.css src/app/globals.test.ts src/app/page.tsx
@@ -341,12 +341,12 @@ git commit -m "feat: add Tailwind v4 theme with brand colors"
 **Interfaces:**
 - Produces: `sessions` Drizzle table (`src/db/schema.ts`), `db` client for production (`src/db/client.ts`, reads `process.env.DATABASE_URL`), `createTestDb()` async helper (`src/db/test-client.ts`) returning an in-memory Drizzle instance with the schema already applied — later plans' DB tests import `createTestDb` the same way.
 
-- [ ] **Step 1: Install dependencies**
+- [x] **Step 1: Install dependencies**
 
 Run: `npm install drizzle-orm pg @electric-sql/pglite`
 Run: `npm install -D drizzle-kit @types/pg`
 
-- [ ] **Step 2: Write the failing test (`src/db/schema.test.ts`)**
+- [x] **Step 2: Write the failing test (`src/db/schema.test.ts`)**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -379,12 +379,12 @@ describe("sessions table", () => {
 });
 ```
 
-- [ ] **Step 3: Run test to verify it fails**
+- [x] **Step 3: Run test to verify it fails**
 
 Run: `npx vitest run src/db/schema.test.ts`
 Expected: FAIL — `./test-client` and `./schema` don't exist yet.
 
-- [ ] **Step 4: Create `src/db/schema.ts`**
+- [x] **Step 4: Create `src/db/schema.ts`**
 
 ```ts
 import {
@@ -415,7 +415,7 @@ export const sessions = pgTable("sessions", {
 
 Note: `id` has no DB-side default — the application always supplies `crypto.randomUUID()` on insert. This keeps behavior identical between production Postgres and the `pglite` test database, which doesn't have the `pgcrypto`/`uuid-ossp` extensions.
 
-- [ ] **Step 5: Create `src/db/client.ts`**
+- [x] **Step 5: Create `src/db/client.ts`**
 
 ```ts
 import { drizzle } from "drizzle-orm/node-postgres";
@@ -427,7 +427,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export const db = drizzle(pool, { schema });
 ```
 
-- [ ] **Step 6: Create `src/db/test-client.ts`**
+- [x] **Step 6: Create `src/db/test-client.ts`**
 
 ```ts
 import { drizzle } from "drizzle-orm/pglite";
@@ -459,7 +459,7 @@ export async function createTestDb() {
 }
 ```
 
-- [ ] **Step 7: Create `drizzle.config.ts`** (used later to migrate the real production database)
+- [x] **Step 7: Create `drizzle.config.ts`** (used later to migrate the real production database)
 
 ```ts
 import { defineConfig } from "drizzle-kit";
@@ -474,17 +474,17 @@ export default defineConfig({
 });
 ```
 
-- [ ] **Step 8: Run test to verify it passes**
+- [x] **Step 8: Run test to verify it passes**
 
 Run: `npx vitest run src/db/schema.test.ts`
 Expected: PASS.
 
-- [ ] **Step 9: Run full test suite**
+- [x] **Step 9: Run full test suite**
 
 Run: `npx vitest run`
 Expected: all tests (sanity, globals, schema) PASS.
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add package.json package-lock.json src/db drizzle.config.ts
@@ -502,7 +502,7 @@ git commit -m "feat: add Drizzle ORM with sessions table and pglite test harness
 **Interfaces:**
 - Produces: a live Vercel deployment URL serving the Task 2 homepage; documents the environment variables (`DATABASE_URL`, `LONGDO_MAP_KEY`, `PEXELS_API_KEY`) every later plan will read via `process.env`.
 
-- [ ] **Step 1: Create `.env.example`**
+- [x] **Step 1: Create `.env.example`**
 
 ```
 DATABASE_URL=postgres://user:password@host/dbname
@@ -510,14 +510,14 @@ LONGDO_MAP_KEY=
 PEXELS_API_KEY=
 ```
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add .env.example
 git commit -m "docs: document required environment variables"
 ```
 
-- [ ] **Step 3: Push to GitHub**
+- [x] **Step 3: Push to GitHub**
 
 Run: `git push origin main`
 Expected: pushes cleanly to the already-configured `origin` (`https://github.com/blackfenzer/meet-eat.git`).
@@ -556,3 +556,51 @@ Each will be written as its own plan doc (same TDD/bite-sized format) once the p
 6. **Finalize flow** — admin locks in date/time/activity, read-only "Final Plan" screen, reopen capability.
 7. **Data lifecycle** — scheduled cleanup job auto-expiring sessions 90 days after their date range ends.
 8. **Polish** — Motion-driven transitions throughout, full mobile-touch pass on the drag interactions, deployment hardening.
+
+---
+
+## Execution notes (2026-09-06)
+
+Executed inline on `main` (user consented to skipping a worktree: greenfield repo,
+one prior commit, and Task 4 pushes to `main` to trigger the Vercel deploy anyway).
+
+**Status:** Tasks 1–3 complete. Task 4 Steps 1–3 complete (`.env.example`, commit,
+push). Task 4 Steps 4–6 remain — they are Vercel dashboard actions only the repo
+owner can perform.
+
+**Verification:** 7 tests passing across 3 files (`npx vitest run`); `npm run build`
+compiles with no type errors; the five brand swatches were confirmed in a real
+browser at `localhost:3000` with computed colors read from the DOM, each matching
+its spec hex exactly (`#8B0909 #B20808 #EDD9CC #B8A597 #806350`); zero console errors.
+
+**Resolved versions:** Next 16.3.4, React 19.2.8, TypeScript 7.0.2, Vitest 5.0.0,
+Tailwind 4.3.3, drizzle-orm 0.45.2, drizzle-kit 0.31.10, pglite 0.5.8, pg 8.23.0.
+
+### Deviations from the plan as written
+
+1. **Test database uses generated migrations, not hand-written DDL** (Task 3 Step 6,
+   user-approved). `createTestDb()` now applies the real `drizzle/` migrations via
+   `drizzle-orm/pglite/migrator`. The generated `0000_*.sql` is byte-equivalent to
+   the DDL the plan hand-wrote, so behavior is identical — but Plans 2–7 can add
+   tables by running `npm run db:generate` instead of mirroring DDL by hand, which
+   removes the schema-drift risk of tests passing against a schema production lacks.
+   Added `db:generate` / `db:migrate` npm scripts.
+2. **Dropped the `"lint": "eslint ."` script** (Task 1 Step 2). ESLint was never
+   installed by any step and no step ran it — a dead script that fails if invoked.
+3. **`vitest.config.ts` → `vitest.config.mts`.** Vite warned that ESM syntax in a
+   CommonJS-loaded config is unsupported by the `configLoader: 'native'` default
+   planned for a future major. The `.m` extension is the documented remedy.
+4. **`next-env.d.ts` is gitignored and untracked.** Next rewrites it between
+   `next dev` and `next build` (`.next/types` vs `.next/dev/types`), leaving the tree
+   permanently dirty. It is regenerated on every build, Vercel included. This matches
+   what current `create-next-app` does.
+5. **Added `.claude/launch.json`** so the dev server can be driven by the browser
+   preview tooling in this and future sessions.
+6. **Committed `docs/`**, which the plan did not mention but which holds this plan.
+
+### Known, accepted
+
+`npm audit` reports 4 moderate advisories, all `drizzle-kit` → `@esbuild-kit` →
+`esbuild`. Dev-only, not shipped; the advisory concerns esbuild's dev server, which
+drizzle-kit does not expose. `npm audit --omit=dev` reports **0 vulnerabilities**.
+The offered fix downgrades drizzle-kit to 0.18.1, a breaking regression — declined.
