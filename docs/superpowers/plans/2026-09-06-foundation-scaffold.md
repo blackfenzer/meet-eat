@@ -522,7 +522,7 @@ git commit -m "docs: document required environment variables"
 Run: `git push origin main`
 Expected: pushes cleanly to the already-configured `origin` (`https://github.com/blackfenzer/meet-eat.git`).
 
-- [ ] **Step 4: Provision a Postgres database (user action)**
+- [x] **Step 4: Provision a Postgres database (user action)**
 
 In the Vercel dashboard, open the project → Storage tab → create a Postgres database (Neon-backed, free tier) and connect it to this project. This is a one-time manual step in Vercel's UI — copy the generated `DATABASE_URL` for the next step.
 
@@ -604,3 +604,31 @@ Tailwind 4.3.3, drizzle-orm 0.45.2, drizzle-kit 0.31.10, pglite 0.5.8, pg 8.23.0
 `esbuild`. Dev-only, not shipped; the advisory concerns esbuild's dev server, which
 drizzle-kit does not expose. `npm audit --omit=dev` reports **0 vulnerabilities**.
 The offered fix downgrades drizzle-kit to 0.18.1, a breaking regression — declined.
+
+### Database provisioned (2026-09-06)
+
+Task 4 Step 4 done by the repo owner. `.env` holds `DATABASE_URL`,
+`LONGDO_MAP_KEY` and `PEXELS_API_KEY` (all three set; `.env` is gitignored).
+`npm run db:migrate` applied `0000_*.sql` to the Neon database `neondb`;
+verified against the live DB: `public.sessions` exists with all 11 columns,
+correct defaults, and one row in `drizzle.__drizzle_migrations`. A rolled-back
+insert/read round trip through `pg` confirmed end-to-end connectivity with no
+persisted data. Re-running `db:migrate` is a no-op (still 1 migration row).
+
+Two things noted about this database:
+
+- It carries Neon's managed-auth tables in a **`neon_auth`** schema
+  (`user`, `session`, `account`, `verification`, `organization`, `member`,
+  `invitation`, `jwks`, `project_config`) — all empty. They are Neon's own
+  provisioning, unrelated to this app, and SPEC.md specifies no user accounts,
+  so nothing here uses them. `drizzle.config.ts` now sets
+  `schemaFilter: ["public"]` so drizzle-kit can never plan a drop against them.
+  Note `neon_auth.session` (Neon's) is distinct from `public.sessions` (ours).
+- `pg` warns that `sslmode` values `prefer`/`require`/`verify-ca` are currently
+  treated as `verify-full` and will adopt weaker libpq semantics in pg v9. It
+  works today; when upgrading pg, pin `sslmode=verify-full` explicitly in
+  `DATABASE_URL` to keep current behavior.
+
+**Remaining:** Task 4 Steps 5–6 only — import the repo into Vercel, set
+`DATABASE_URL` (plus the two API keys) in Project Settings, deploy, and confirm
+the swatch page renders on the live URL.
