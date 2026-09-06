@@ -1,11 +1,18 @@
 @import "tailwindcss";
 
 @theme {
+  /* Brand palette, exact values from SPEC.md */
   --color-maroon: #8B0909;
   --color-brick: #B20808;
   --color-cream: #EDD9CC;
   --color-taupe: #B8A597;
   --color-umber: #806350;
+
+  /* Derived surfaces and text, so components never hardcode a hex */
+  --color-paper: #FBF8F5;
+  --color-ink: #2A1A16;
+  --color-rule: rgba(128, 99, 80, 0.22);
+  --color-rule-strong: rgba(128, 99, 80, 0.42);
 }
 
 :root {
@@ -15,5 +22,67 @@
 body {
   margin: 0;
   background-color: var(--color-cream);
+  color: var(--color-ink);
+  font-family: "SF Pro Text", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3 {
+  font-family: var(--font-serif), "Iowan Old Style", Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
   color: var(--color-maroon);
+  margin: 0;
+}
+
+label {
+  display: block;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-umber);
+  margin-bottom: 0.4rem;
+}
+
+input, select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  font: inherit;
+  color: var(--color-ink);
+  background: var(--color-paper);
+  border: 1px solid var(--color-rule);
+  border-radius: 6px;
+  outline: none;
+}
+
+input:focus, select:focus {
+  border-color: var(--color-maroon);
+}
+
+/* PIN entry reads as a code, not prose */
+input[data-pin] {
+  font-family: "SF Mono", ui-monospace, "JetBrains Mono", monospace;
+  letter-spacing: 0.6em;
+  text-align: center;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Quiet entrance, transform/opacity only */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.rise {
+  animation: rise 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; }
 }
