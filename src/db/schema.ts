@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   uuid,
+  index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
 
@@ -48,5 +49,29 @@ export const participants = pgTable(
       t.sessionId,
       sql`lower(${t.name})`,
     ),
+  ],
+);
+
+export const availabilityBlocks = pgTable(
+  "availability_blocks",
+  {
+    id: uuid("id").primaryKey(),
+    // Denormalised from the participant so the grid for a whole session is one
+    // indexed lookup rather than a join on every poll.
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    /** Wall-clock start of a half-hour block. See src/lib/slots.ts. */
+    slotStart: timestamp("slot_start", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Availability is binary, so a person marking the same block twice is one
+    // row. This is what makes re-painting over a selection idempotent.
+    uniqueIndex("availability_participant_slot_unique").on(t.participantId, t.slotStart),
+    index("availability_session_idx").on(t.sessionId),
   ],
 );
