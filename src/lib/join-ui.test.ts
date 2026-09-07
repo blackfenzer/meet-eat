@@ -48,6 +48,7 @@ describe("messageForJoinFailure", () => {
   it("lists exactly the failure reasons the service can return", () => {
     const expected: JoinFailure[] = [
       "invalid_name", "invalid_pin", "no_such_session", "session_full", "wrong_pin",
+      "locked_out",
     ];
     expect([...ALL_JOIN_FAILURES].sort()).toEqual(expected.sort());
   });

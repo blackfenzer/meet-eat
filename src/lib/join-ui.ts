@@ -1,4 +1,5 @@
 import type { JoinFailure, NameStatus } from "./session-service";
+import { LOCKOUT_MINUTES } from "./pin-throttle";
 
 /** Which prompt the join form shows once the server has judged the typed name. */
 export type JoinStep = "name" | "set-pin" | "enter-pin" | "full";
@@ -21,6 +22,7 @@ export const ALL_JOIN_FAILURES = [
   "no_such_session",
   "session_full",
   "wrong_pin",
+  "locked_out",
 ] as const satisfies readonly JoinFailure[];
 
 export function messageForJoinFailure(reason: JoinFailure): string {
@@ -35,5 +37,7 @@ export function messageForJoinFailure(reason: JoinFailure): string {
       return "This plan is full. If you have joined before, use the same name and PIN to get your spot back.";
     case "wrong_pin":
       return "That PIN does not match this name. Try again, or pick a different name.";
+    case "locked_out":
+      return `Too many wrong PINs for this name. Try again in ${LOCKOUT_MINUTES} minutes, or use a different name.`;
   }
 }

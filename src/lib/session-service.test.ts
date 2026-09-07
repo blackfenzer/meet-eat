@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
+import { eq } from "drizzle-orm";
 import { createTestDb } from "@/db/test-client";
 import { participants } from "@/db/schema";
+import { MAX_PIN_ATTEMPTS } from "./pin-throttle";
 import {
   createSession,
   joinSession,
@@ -239,5 +241,88 @@ describe("resolveName", () => {
     await expect(resolveName(db, crypto.randomUUID(), "Ploy")).rejects.toThrow(
       /no such session/i,
     );
+  });
+});
+
+describe("joinSession PIN throttling", () => {
+  async function seed() {
+    const r = await createSession(db, validInput());
+    if (!r.ok) throw new Error("seed failed");
+    return r.sessionId;
+  }
+
+  it("locks the name out after too many wrong PINs", async () => {
+    const sessionId = await seed();
+    await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+
+    let last;
+    for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) {
+      last = await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+    }
+
+    expect(last).toEqual({ ok: false, reason: "locked_out" });
+  });
+
+  it("refuses even the correct PIN while locked out", async () => {
+    const sessionId = await seed();
+    await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) {
+      await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+    }
+
+    const r = await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    expect(r).toEqual({ ok: false, reason: "locked_out" });
+  });
+
+  it("lets a correct PIN through before the ceiling and forgets the attempts", async () => {
+    const sessionId = await seed();
+    await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+    await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+
+    const good = await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    expect(good.ok).toBe(true);
+
+    const row = (
+      await db.select().from(participants).where(eq(participants.sessionId, sessionId))
+    ).find((p) => p.name === "Ploy");
+    expect(row?.pinAttempts).toBe(0);
+    expect(row?.lockedUntil).toBeNull();
+  });
+
+  it("admits the right PIN again once the lock has expired", async () => {
+    const sessionId = await seed();
+    const joined = await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    if (!joined.ok) throw new Error("expected ok");
+    for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) {
+      await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+    }
+
+    // wind the lock back into the past
+    await db
+      .update(participants)
+      .set({ lockedUntil: new Date(Date.now() - 60_000) })
+      .where(eq(participants.id, joined.participant.id));
+
+    const r = await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    expect(r.ok).toBe(true);
+  });
+
+  it("throttles each name independently", async () => {
+    const sessionId = await seed();
+    await joinSession(db, { sessionId, name: "Ploy", pin: "5678" });
+    await joinSession(db, { sessionId, name: "Beam", pin: "1111" });
+    for (let i = 0; i < MAX_PIN_ATTEMPTS; i++) {
+      await joinSession(db, { sessionId, name: "Ploy", pin: "0000" });
+    }
+
+    const beam = await joinSession(db, { sessionId, name: "Beam", pin: "1111" });
+    expect(beam.ok).toBe(true);
+  });
+
+  it("does not throttle a brand-new name", async () => {
+    const sessionId = await seed();
+    const r = await joinSession(db, { sessionId, name: "Newcomer", pin: "4321" });
+    expect(r.ok).toBe(true);
   });
 });

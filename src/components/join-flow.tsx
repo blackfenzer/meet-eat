@@ -107,9 +107,9 @@ export function JoinFlow({
         <div className="mt-8 border-t border-rule pt-8">
           <AvailabilityGrid
             sessionId={sessionId}
-            participantId={identity.participantId}
             window={win}
             locked={locked}
+            onIdentityLost={startOver}
           />
         </div>
       </Card>

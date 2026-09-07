@@ -1,6 +1,9 @@
 "use server";
 
+import { cookies } from "next/headers";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { participants } from "@/db/schema";
 import {
   createSession,
   joinSession,
@@ -9,7 +12,6 @@ import {
   type JoinFailure,
   type NameStatus,
 } from "@/lib/session-service";
-import { timeToMinutes } from "@/lib/time";
 import {
   countsBySlot,
   listAvailability,
@@ -17,8 +19,60 @@ import {
   slotsForParticipant,
   type SetAvailabilityFailure,
 } from "@/lib/availability-service";
-import { participants } from "@/db/schema";
-import { eq, sql } from "drizzle-orm";
+import {
+  participantCookieName,
+  signParticipantToken,
+  verifyParticipantToken,
+} from "@/lib/participant-token";
+import { timeToMinutes } from "@/lib/time";
+
+/**
+ * Identity is never read from a request parameter.
+ *
+ * A participant id is the only credential this account-less app has, so
+ * accepting one from the browser would let anybody read or overwrite any
+ * participant's availability just by naming their id. The server issues the id
+ * once, signed, into an httpOnly cookie, and every later call reads it back
+ * from there.
+ */
+function appSecret(): string {
+  const secret = process.env.APP_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error(
+      "APP_SECRET must be set to at least 32 characters to sign participant cookies",
+    );
+  }
+  return secret;
+}
+
+async function grantIdentity(sessionId: string, participantId: string): Promise<void> {
+  const jar = await cookies();
+  jar.set(
+    participantCookieName(sessionId),
+    signParticipantToken({ sessionId, participantId }, appSecret()),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      // Comfortably outlives the 90-day data lifecycle in SPEC.md.
+      maxAge: 60 * 60 * 24 * 120,
+    },
+  );
+}
+
+/** The caller's proven participant id for this session, or null. */
+async function currentParticipantId(sessionId: string): Promise<string | null> {
+  const jar = await cookies();
+  const raw = jar.get(participantCookieName(sessionId))?.value;
+  if (!raw) return null;
+
+  const identity = verifyParticipantToken(raw, appSecret());
+  // A cookie minted for another session must not carry over to this one.
+  if (!identity || identity.sessionId !== sessionId) return null;
+
+  return identity.participantId;
+}
 
 export type CreateSessionForm = {
   title: string;
@@ -66,6 +120,8 @@ export async function createSessionAction(
 
   if (!result.ok) return result;
 
+  await grantIdentity(result.sessionId, result.participantId);
+
   return {
     ok: true,
     sessionId: result.sessionId,
@@ -99,6 +155,8 @@ export async function joinSessionAction(
   const result = await joinSession(db, { sessionId, name, pin });
   if (!result.ok) return result;
 
+  await grantIdentity(sessionId, result.participant.id);
+
   // Return only the fields the browser needs — never the PIN back out.
   return {
     ok: true,
@@ -118,10 +176,13 @@ export type GridSnapshot = {
   participantCount: number;
 };
 
+/** Null means this browser has not proven it is a participant of this session. */
 export async function readAvailabilityAction(
   sessionId: string,
-  participantId: string,
-): Promise<GridSnapshot> {
+): Promise<GridSnapshot | null> {
+  const participantId = await currentParticipantId(sessionId);
+  if (!participantId) return null;
+
   const [rows, headcount] = await Promise.all([
     listAvailability(db, sessionId),
     db
@@ -143,10 +204,12 @@ export type SetAvailabilityActionResult =
 
 export async function setAvailabilityAction(
   sessionId: string,
-  participantId: string,
   addIso: string[],
   removeIso: string[],
 ): Promise<SetAvailabilityActionResult> {
+  const participantId = await currentParticipantId(sessionId);
+  if (!participantId) return { ok: false, reason: "not_a_participant" };
+
   const toDates = (xs: string[]) => xs.map((x) => new Date(x));
   return setAvailability(db, {
     sessionId,

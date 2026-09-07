@@ -25,14 +25,15 @@ function heatStyle(count: number, total: number): React.CSSProperties {
 
 export function AvailabilityGrid({
   sessionId,
-  participantId,
   window: win,
   locked,
+  onIdentityLost,
 }: {
   sessionId: string;
-  participantId: string;
   window: GridWindow;
   locked: boolean;
+  /** Called when the server no longer recognises this browser as a participant. */
+  onIdentityLost: () => void;
 }) {
   const model: SessionWindow = useMemo(
     () => ({
@@ -58,12 +59,19 @@ export function AvailabilityGrid({
   const saving = useRef(false);
 
   const refresh = useCallback(async () => {
-    const snap = await readAvailabilityAction(sessionId, participantId);
+    const snap = await readAvailabilityAction(sessionId);
+    if (!snap) {
+      // The signed cookie is gone or was issued for another session, so this
+      // device is not who localStorage thinks it is. Send it back to the join
+      // form rather than showing a grid it cannot write to.
+      onIdentityLost();
+      return;
+    }
     setCounts(new Map(snap.counts));
     setMine(new Set(snap.mine));
     setTotal(snap.participantCount);
     setLoaded(true);
-  }, [sessionId, participantId]);
+  }, [sessionId, onIdentityLost]);
 
   useEffect(() => {
     void refresh();
@@ -123,7 +131,6 @@ export function AvailabilityGrid({
     try {
       const result = await setAvailabilityAction(
         sessionId,
-        participantId,
         d.mode === "add" ? slots : [],
         d.mode === "remove" ? slots : [],
       );
@@ -131,14 +138,16 @@ export function AvailabilityGrid({
         setError(
           result.reason === "session_finalized"
             ? "This plan has been finalised, so availability is locked."
-            : "That change could not be saved. Reloading the grid.",
+            : result.reason === "not_a_participant"
+              ? "This device is no longer signed in to this plan."
+              : "That change could not be saved. Reloading the grid.",
         );
       }
     } finally {
       saving.current = false;
       await refresh();
     }
-  }, [sessionId, participantId, refresh]);
+  }, [sessionId, refresh]);
 
   /**
    * Browsers throttle timers in a background tab to roughly once a minute, so

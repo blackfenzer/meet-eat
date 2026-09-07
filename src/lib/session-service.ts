@@ -2,6 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { and, eq, sql } from "drizzle-orm";
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import * as schema from "@/db/schema";
+import { isLocked, nextThrottleState } from "./pin-throttle";
 import { participants, sessions } from "@/db/schema";
 
 /**
@@ -43,7 +44,8 @@ export type JoinFailure =
   | "invalid_pin"
   | "no_such_session"
   | "session_full"
-  | "wrong_pin";
+  | "wrong_pin"
+  | "locked_out";
 
 export type JoinResult =
   | { ok: true; participant: Participant; created: boolean }
@@ -162,7 +164,23 @@ export async function joinSession(db: Db, input: JoinInput): Promise<JoinResult>
     // A name already in the room is an identity, not a new seat: the PIN is
     // what proves it, and the room cap never applies (SPEC.md) — that is how
     // someone switching phones gets back in.
-    if (existing.pin !== input.pin) return { ok: false, reason: "wrong_pin" };
+    const now = new Date();
+    const state = { attempts: existing.pinAttempts, lockedUntil: existing.lockedUntil };
+
+    // Checked before the PIN is even compared, so a locked name leaks nothing
+    // about whether a guess was close.
+    if (isLocked(state, now)) return { ok: false, reason: "locked_out" };
+
+    const correct = existing.pin === input.pin;
+    const next = nextThrottleState(state, correct, now);
+    await db
+      .update(participants)
+      .set({ pinAttempts: next.attempts, lockedUntil: next.lockedUntil })
+      .where(eq(participants.id, existing.id));
+
+    if (!correct) {
+      return { ok: false, reason: isLocked(next, now) ? "locked_out" : "wrong_pin" };
+    }
     return { ok: true, participant: existing, created: false };
   }
 

@@ -40,6 +40,10 @@ export const participants = pgTable(
     // password — the app has no accounts and stores nothing else sensitive.
     pin: text("pin").notNull(),
     isAdmin: boolean("is_admin").notNull().default(false),
+    /** Consecutive wrong PINs. See src/lib/pin-throttle.ts. */
+    pinAttempts: integer("pin_attempts").notNull().default(0),
+    /** Set once the attempt ceiling is hit; null when not locked. */
+    lockedUntil: timestamp("locked_until", { mode: "date" }),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (t) => [
