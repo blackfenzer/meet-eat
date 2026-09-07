@@ -28,7 +28,7 @@ export default async function SessionPage({
   if (!row) notFound();
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-20 sm:py-24">
+    <main className="mx-auto max-w-3xl px-6 py-20 sm:py-24">
       <header className="rise">
         <p className="text-xs uppercase tracking-[0.16em] text-umber">Meet &amp; Eat</p>
         <p className="mt-4 text-sm text-umber">
@@ -39,7 +39,17 @@ export default async function SessionPage({
       </header>
 
       <section className="mt-10">
-        <JoinFlow sessionId={row.id} title={row.title} />
+        <JoinFlow
+          sessionId={row.id}
+          title={row.title}
+          locked={row.status === "finalized"}
+          window={{
+            dateRangeStartIso: row.dateRangeStart.toISOString(),
+            dateRangeEndIso: row.dateRangeEnd.toISOString(),
+            dailyStartMinutes: row.dailyStartMinutes,
+            dailyEndMinutes: row.dailyEndMinutes,
+          }}
+        />
       </section>
     </main>
   );

@@ -10,6 +10,15 @@ import {
   type NameStatus,
 } from "@/lib/session-service";
 import { timeToMinutes } from "@/lib/time";
+import {
+  countsBySlot,
+  listAvailability,
+  setAvailability,
+  slotsForParticipant,
+  type SetAvailabilityFailure,
+} from "@/lib/availability-service";
+import { participants } from "@/db/schema";
+import { eq, sql } from "drizzle-orm";
 
 export type CreateSessionForm = {
   title: string;
@@ -98,4 +107,51 @@ export async function joinSessionAction(
     isAdmin: result.participant.isAdmin,
     created: result.created,
   };
+}
+
+export type GridSnapshot = {
+  /** [slot ISO, how many people are free then] */
+  counts: Array<[string, number]>;
+  /** The caller's own marked slots, as ISO strings. */
+  mine: string[];
+  /** Denominator for the heatmap. */
+  participantCount: number;
+};
+
+export async function readAvailabilityAction(
+  sessionId: string,
+  participantId: string,
+): Promise<GridSnapshot> {
+  const [rows, headcount] = await Promise.all([
+    listAvailability(db, sessionId),
+    db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(participants)
+      .where(eq(participants.sessionId, sessionId)),
+  ]);
+
+  return {
+    counts: [...countsBySlot(rows)],
+    mine: [...slotsForParticipant(rows, participantId)],
+    participantCount: headcount[0]?.n ?? 0,
+  };
+}
+
+export type SetAvailabilityActionResult =
+  | { ok: true }
+  | { ok: false; reason: SetAvailabilityFailure };
+
+export async function setAvailabilityAction(
+  sessionId: string,
+  participantId: string,
+  addIso: string[],
+  removeIso: string[],
+): Promise<SetAvailabilityActionResult> {
+  const toDates = (xs: string[]) => xs.map((x) => new Date(x));
+  return setAvailability(db, {
+    sessionId,
+    participantId,
+    add: toDates(addIso),
+    remove: toDates(removeIso),
+  });
 }

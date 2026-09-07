@@ -10,13 +10,18 @@ import {
 } from "@/lib/local-identity";
 import { messageForJoinFailure, stepForNameStatus, type JoinStep } from "@/lib/join-ui";
 import { Button, Card, Field, Notice, QuietButton, Tag } from "@/components/ui";
+import { AvailabilityGrid, type GridWindow } from "@/components/availability-grid";
 
 export function JoinFlow({
   sessionId,
   title,
+  window: win,
+  locked,
 }: {
   sessionId: string;
   title: string;
+  window: GridWindow;
+  locked: boolean;
 }) {
   // Undefined until the browser has been checked, so the form never flashes
   // in front of someone this device already knows.
@@ -99,10 +104,14 @@ export function JoinFlow({
             Not you
           </QuietButton>
         </div>
-        <p className="mt-6 border-t border-rule pt-6 text-sm text-umber">
-          Marking when you are free comes next. This device will remember you, so the
-          link takes you straight back here.
-        </p>
+        <div className="mt-8 border-t border-rule pt-8">
+          <AvailabilityGrid
+            sessionId={sessionId}
+            participantId={identity.participantId}
+            window={win}
+            locked={locked}
+          />
+        </div>
       </Card>
     );
   }

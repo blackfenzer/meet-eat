@@ -6,6 +6,13 @@
  * timezone. Session dates are stored as `timestamp without time zone`, so
  * reading and writing them through UTC accessors keeps the number that went
  * into the database identical to the one that comes back out.
+ *
+ * That symmetry comes from Drizzle, which parses these columns as UTC. Reading
+ * the same columns with a bare `pg` client instead returns Dates shifted by the
+ * process's local offset, because node-postgres treats a bare timestamp as
+ * local time. Verified on a UTC+7 host: a slot stored as `2026-09-09 18:00:00`
+ * reads back as 18:00Z through Drizzle and as 11:00Z through raw `pg`. Query
+ * these columns through Drizzle, or the grid will appear to shift by hours.
  */
 
 export const SLOT_MINUTES = 30;
