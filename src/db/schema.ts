@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   uuid,
+  doublePrecision,
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -77,5 +78,60 @@ export const availabilityBlocks = pgTable(
     // row. This is what makes re-painting over a selection idempotent.
     uniqueIndex("availability_participant_slot_unique").on(t.participantId, t.slotStart),
     index("availability_session_idx").on(t.sessionId),
+  ],
+);
+
+export const activities = pgTable(
+  "activities",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    /**
+     * Whoever suggested it. Null once that person is removed from the session —
+     * the suggestion stays in the pool, since other people may have ranked it.
+     */
+    createdBy: uuid("created_by").references(() => participants.id, {
+      onDelete: "set null",
+    }),
+    name: text("name").notNull(),
+    locationName: text("location_name"),
+    latitude: doublePrecision("latitude"),
+    longitude: doublePrecision("longitude"),
+    imageUrl: text("image_url"),
+    /** How the image was obtained: direct, og, or stock. See activity-image.ts. */
+    imageSource: text("image_source"),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+  },
+  (t) => [
+    // Two people suggesting the same place should collide rather than split the
+    // vote between near-identical entries.
+    uniqueIndex("activities_session_lower_name_unique").on(
+      t.sessionId,
+      sql`lower(${t.name})`,
+    ),
+  ],
+);
+
+export const rankings = pgTable(
+  "rankings",
+  {
+    id: uuid("id").primaryKey(),
+    sessionId: uuid("session_id")
+      .notNull()
+      .references(() => sessions.id, { onDelete: "cascade" }),
+    participantId: uuid("participant_id")
+      .notNull()
+      .references(() => participants.id, { onDelete: "cascade" }),
+    activityId: uuid("activity_id")
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    /** 0 is the participant's first choice. */
+    position: integer("position").notNull(),
+  },
+  (t) => [
+    uniqueIndex("rankings_participant_activity_unique").on(t.participantId, t.activityId),
+    index("rankings_session_idx").on(t.sessionId),
   ],
 );
