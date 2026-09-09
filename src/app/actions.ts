@@ -24,6 +24,17 @@ import {
   signParticipantToken,
   verifyParticipantToken,
 } from "@/lib/participant-token";
+import {
+  addActivity,
+  groupRanking,
+  listActivities,
+  rankingForParticipant,
+  setRanking,
+  type AddActivityFailure,
+  type SetRankingFailure,
+} from "@/lib/activity-service";
+import { resolveActivityImage } from "@/lib/activity-image";
+import { fetchPage, fetchStock } from "@/lib/image-fetchers";
 import { timeToMinutes } from "@/lib/time";
 
 /**
@@ -217,4 +228,111 @@ export async function setAvailabilityAction(
     add: toDates(addIso),
     remove: toDates(removeIso),
   });
+}
+
+export type PoolEntry = {
+  id: string;
+  name: string;
+  locationName: string | null;
+  imageUrl: string | null;
+  imageSource: string | null;
+};
+
+export type GroupEntry = {
+  activityId: string;
+  name: string;
+  score: number;
+  firstChoices: number;
+  voters: number;
+};
+
+export type ActivitiesSnapshot = {
+  pool: PoolEntry[];
+  /** The caller's own ranking, best first. */
+  mine: string[];
+  group: GroupEntry[];
+};
+
+/** Null means this browser has not proven it is a participant of this session. */
+export async function readActivitiesAction(
+  sessionId: string,
+): Promise<ActivitiesSnapshot | null> {
+  const participantId = await currentParticipantId(sessionId);
+  if (!participantId) return null;
+
+  const [pool, mine, group] = await Promise.all([
+    listActivities(db, sessionId),
+    rankingForParticipant(db, participantId),
+    groupRanking(db, sessionId),
+  ]);
+
+  return {
+    pool: pool.map((a) => ({
+      id: a.id,
+      name: a.name,
+      locationName: a.locationName,
+      imageUrl: a.imageUrl,
+      imageSource: a.imageSource,
+    })),
+    mine,
+    group: group.map((g) => ({
+      activityId: g.activityId,
+      name: g.activity.name,
+      score: g.score,
+      firstChoices: g.firstChoices,
+      voters: g.voters,
+    })),
+  };
+}
+
+export type AddActivityForm = {
+  name: string;
+  locationName: string;
+  /** A direct image URL, or a page to take an og:image from. May be blank. */
+  imageInput: string;
+};
+
+export type AddActivityActionResult =
+  | { ok: true; activityId: string }
+  | { ok: false; reason: AddActivityFailure | "not_signed_in" };
+
+export async function addActivityAction(
+  sessionId: string,
+  form: AddActivityForm,
+): Promise<AddActivityActionResult> {
+  const participantId = await currentParticipantId(sessionId);
+  if (!participantId) return { ok: false, reason: "not_signed_in" };
+
+  // Resolved on the server: the browser must never be the one fetching a
+  // stranger's page, and the Pexels key never leaves the server.
+  const image = await resolveActivityImage(
+    { imageInput: form.imageInput, tag: form.name },
+    { fetchPage, fetchStock },
+  );
+
+  const result = await addActivity(db, {
+    sessionId,
+    participantId,
+    name: form.name,
+    locationName: form.locationName.trim() || null,
+    imageUrl: image.url,
+    imageSource: image.source === "none" ? null : image.source,
+  });
+
+  if (!result.ok) return result;
+  return { ok: true, activityId: result.activity.id };
+}
+
+export type SetRankingActionResult =
+  | { ok: true }
+  | { ok: false; reason: SetRankingFailure | "not_signed_in" };
+
+export async function setRankingAction(
+  sessionId: string,
+  activityIds: string[],
+): Promise<SetRankingActionResult> {
+  const participantId = await currentParticipantId(sessionId);
+  if (!participantId) return { ok: false, reason: "not_signed_in" };
+
+  return setRanking(db, { sessionId, participantId, activityIds });
 }

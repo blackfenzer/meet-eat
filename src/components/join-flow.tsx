@@ -11,6 +11,7 @@ import {
 import { messageForJoinFailure, stepForNameStatus, type JoinStep } from "@/lib/join-ui";
 import { Button, Card, Field, Notice, QuietButton, Tag } from "@/components/ui";
 import { AvailabilityGrid, type GridWindow } from "@/components/availability-grid";
+import { ActivitiesPanel } from "@/components/activities-panel";
 
 export function JoinFlow({
   sessionId,
@@ -108,6 +109,13 @@ export function JoinFlow({
           <AvailabilityGrid
             sessionId={sessionId}
             window={win}
+            locked={locked}
+            onIdentityLost={startOver}
+          />
+        </div>
+        <div className="mt-10 border-t border-rule pt-8">
+          <ActivitiesPanel
+            sessionId={sessionId}
             locked={locked}
             onIdentityLost={startOver}
           />
