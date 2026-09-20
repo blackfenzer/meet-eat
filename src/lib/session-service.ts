@@ -136,6 +136,7 @@ export async function createSession(
       dailyStartMinutes: input.dailyStartMinutes,
       dailyEndMinutes: input.dailyEndMinutes,
       maxParticipants: input.maxParticipants,
+      guestCounter: 1,
     });
     await tx.insert(participants).values({
       id: participantId,
@@ -143,6 +144,7 @@ export async function createSession(
       name: adminName,
       pin: input.adminPin,
       isAdmin: true,
+      guestNumber: 1,
     });
   });
 
@@ -190,10 +192,26 @@ export async function joinSession(db: Db, input: JoinInput): Promise<JoinResult>
     return { ok: false, reason: "session_full" };
   }
 
-  const rows = await db
-    .insert(participants)
-    .values({ id: randomUUID(), sessionId: input.sessionId, name, pin: input.pin })
-    .returning();
+  // The counter only ever moves forward, so a removed participant never has
+  // their "Guest N" handed to the next person to join.
+  const rows = await db.transaction(async (tx) => {
+    const bumped = await tx
+      .update(sessions)
+      .set({ guestCounter: sql`${sessions.guestCounter} + 1` })
+      .where(eq(sessions.id, input.sessionId))
+      .returning({ guestNumber: sessions.guestCounter });
+
+    return tx
+      .insert(participants)
+      .values({
+        id: randomUUID(),
+        sessionId: input.sessionId,
+        name,
+        pin: input.pin,
+        guestNumber: bumped[0].guestNumber,
+      })
+      .returning();
+  });
 
   return { ok: true, participant: rows[0], created: true };
 }

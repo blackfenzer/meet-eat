@@ -24,6 +24,17 @@ export const sessions = pgTable("sessions", {
   status: text("status", { enum: ["open", "finalized"] })
     .notNull()
     .default("open"),
+  /**
+   * Last guest label issued. Kept on the session rather than derived from the
+   * participants still present, so removing someone never hands their "Guest N"
+   * to the next person to join.
+   */
+  guestCounter: integer("guest_counter").notNull().default(0),
+  /** Set when the organiser finalises; cleared on reopen. */
+  finalDate: timestamp("final_date", { mode: "date" }),
+  finalStartMinutes: integer("final_start_minutes"),
+  finalEndMinutes: integer("final_end_minutes"),
+  finalActivityId: uuid("final_activity_id"),
   createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
 });
 
@@ -45,6 +56,12 @@ export const participants = pgTable(
     pinAttempts: integer("pin_attempts").notNull().default(0),
     /** Set once the attempt ceiling is hit; null when not locked. */
     lockedUntil: timestamp("locked_until", { mode: "date" }),
+    /**
+     * Stable label number for anonymous mode: "Guest 3" stays Guest 3 for the
+     * life of the session, so it is assigned once rather than derived from a
+     * position in a list that shifts when someone is removed.
+     */
+    guestNumber: integer("guest_number").notNull().default(1),
     createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
   },
   (t) => [
