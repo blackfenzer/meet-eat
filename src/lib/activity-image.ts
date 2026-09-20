@@ -30,12 +30,17 @@ export function classifyImageInput(raw: string): ImageInputKind {
 }
 
 /**
- * Whether the server may fetch this URL.
+ * A cheap first pass over the URL's text: right scheme, not an obviously
+ * internal name or literal address.
  *
- * The user supplies the address and the server makes the request, which is a
- * server-side request forgery risk: without this check, pasting
- * `http://169.254.169.254/...` would have the server read its own cloud
- * metadata — credentials included — and hand it back as a picture.
+ * This is necessary but NOT sufficient, and must never be the only check before
+ * the server opens a connection — a hostname like `evil.example` whose DNS
+ * record points at `169.254.169.254` reads as perfectly public here. Anything
+ * the server actually fetches goes through `resolveSafeTarget` in net-guard.ts,
+ * which resolves the name and pins the socket to a validated address.
+ *
+ * It is still the right level of checking for a direct image URL, which is
+ * handed to the browser rather than fetched here.
  */
 export function isSafeFetchUrl(raw: string): boolean {
   const url = parse(raw);
