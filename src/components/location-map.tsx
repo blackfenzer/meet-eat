@@ -23,6 +23,7 @@ declare global {
 
 type LongdoMap = {
   Overlays: { add: (overlay: unknown) => void; clear: () => void };
+  Event: { bind: (name: string, handler: () => void) => void };
   location: (loc: { lon: number; lat: number }, animate?: boolean) => void;
   zoom: (level: number, animate?: boolean) => void;
 };
@@ -56,29 +57,24 @@ function loadLongdo(apiKey: string): Promise<void> {
 export function LocationMap({ apiKey, pins }: { apiKey: string | null; pins: MapPin[] }) {
   const holder = useRef<HTMLDivElement | null>(null);
   const map = useRef<LongdoMap | null>(null);
+  const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
+  // Create the map once the API is available.
   useEffect(() => {
-    if (!apiKey || pins.length === 0 || !holder.current) return;
+    if (!apiKey || pins.length === 0 || !holder.current || map.current) return;
     let cancelled = false;
 
     loadLongdo(apiKey)
       .then(() => {
         if (cancelled || !holder.current || !window.longdo) return;
-        map.current ??= new window.longdo.Map({ placeholder: holder.current });
-
-        map.current.Overlays.clear();
-        for (const pin of pins) {
-          map.current.Overlays.add(
-            new window.longdo.Marker(
-              { lon: pin.longitude, lat: pin.latitude },
-              { title: pin.name, detail: pin.name },
-            ),
-          );
-        }
-        // Centre on the first pin; the group is usually in one neighbourhood.
-        map.current.location({ lon: pins[0].longitude, lat: pins[0].latitude }, true);
-        map.current.zoom(pins.length === 1 ? 15 : 13, true);
+        const instance = new window.longdo.Map({ placeholder: holder.current });
+        map.current = instance;
+        // Overlays are not usable until Longdo says the map is ready; touching
+        // them earlier throws on undefined internals.
+        instance.Event.bind("ready", () => {
+          if (!cancelled) setReady(true);
+        });
       })
       .catch(() => {
         if (!cancelled) setFailed(true);
@@ -87,7 +83,26 @@ export function LocationMap({ apiKey, pins }: { apiKey: string | null; pins: Map
     return () => {
       cancelled = true;
     };
-  }, [apiKey, pins]);
+  }, [apiKey, pins.length]);
+
+  // Keep the pins in step once it is.
+  useEffect(() => {
+    const instance = map.current;
+    if (!ready || !instance || !window.longdo || pins.length === 0) return;
+
+    instance.Overlays.clear();
+    for (const pin of pins) {
+      instance.Overlays.add(
+        new window.longdo.Marker(
+          { lon: pin.longitude, lat: pin.latitude },
+          { title: pin.name, detail: pin.name },
+        ),
+      );
+    }
+    // Centre on the first pin; the group is usually in one neighbourhood.
+    instance.location({ lon: pins[0].longitude, lat: pins[0].latitude }, true);
+    instance.zoom(pins.length === 1 ? 15 : 13, true);
+  }, [ready, pins]);
 
   if (pins.length === 0) return null;
 

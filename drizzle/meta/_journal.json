@@ -43,6 +43,13 @@
       "when": 1789904567078,
       "tag": "0005_loud_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790414105232,
+      "tag": "0006_backfill_guest_numbers",
+      "breakpoints": true
     }
   ]
 }
