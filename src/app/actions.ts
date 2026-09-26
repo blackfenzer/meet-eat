@@ -1,9 +1,9 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { eq, sql } from "drizzle-orm";
+import { asc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { participants } from "@/db/schema";
+import { participants, sessions } from "@/db/schema";
 import {
   createSession,
   joinSession,
@@ -35,6 +35,18 @@ import {
 } from "@/lib/activity-service";
 import { resolveActivityImage } from "@/lib/activity-image";
 import { fetchPage, fetchStock } from "@/lib/image-fetchers";
+import {
+  finalizeSession,
+  removeActivity,
+  removeParticipant,
+  reopenSession,
+  resetPin,
+  updateSessionSettings,
+  verifyAdmin,
+  type AdminFailure,
+} from "@/lib/admin-service";
+import { displayNameFor } from "@/lib/display-name";
+import { parseCoordinates } from "@/lib/map-links";
 import { timeToMinutes } from "@/lib/time";
 
 /**
@@ -234,6 +246,8 @@ export type PoolEntry = {
   id: string;
   name: string;
   locationName: string | null;
+  latitude: number | null;
+  longitude: number | null;
   imageUrl: string | null;
   imageSource: string | null;
 };
@@ -271,6 +285,8 @@ export async function readActivitiesAction(
       id: a.id,
       name: a.name,
       locationName: a.locationName,
+      latitude: a.latitude,
+      longitude: a.longitude,
       imageUrl: a.imageUrl,
       imageSource: a.imageSource,
     })),
@@ -288,6 +304,8 @@ export async function readActivitiesAction(
 export type AddActivityForm = {
   name: string;
   locationName: string;
+  /** Typed "lat, lng" or a pasted Google Maps link. May be blank. */
+  locationInput: string;
   /** A direct image URL, or a page to take an og:image from. May be blank. */
   imageInput: string;
 };
@@ -310,11 +328,15 @@ export async function addActivityAction(
     { fetchPage, fetchStock },
   );
 
+  const coordinates = parseCoordinates(form.locationInput ?? "");
+
   const result = await addActivity(db, {
     sessionId,
     participantId,
     name: form.name,
     locationName: form.locationName.trim() || null,
+    latitude: coordinates?.latitude ?? null,
+    longitude: coordinates?.longitude ?? null,
     imageUrl: image.url,
     imageSource: image.source === "none" ? null : image.source,
   });
@@ -335,4 +357,159 @@ export async function setRankingAction(
   if (!participantId) return { ok: false, reason: "not_signed_in" };
 
   return setRanking(db, { sessionId, participantId, activityIds });
+}
+
+export type RosterEntry = {
+  id: string;
+  displayName: string;
+  isAdmin: boolean;
+  isYou: boolean;
+};
+
+/** Who is in the session, named according to anonymous mode. */
+export async function readRosterAction(sessionId: string): Promise<RosterEntry[] | null> {
+  const viewerId = await currentParticipantId(sessionId);
+  if (!viewerId) return null;
+
+  const session = (
+    await db.select().from(sessions).where(eq(sessions.id, sessionId)).limit(1)
+  )[0];
+  if (!session) return null;
+
+  const people = await db
+    .select()
+    .from(participants)
+    .where(eq(participants.sessionId, sessionId))
+    .orderBy(asc(participants.guestNumber));
+
+  // A participant viewing the roster is never treated as the organiser here:
+  // admin sight of real names comes from the organiser page, which proves the
+  // token, not from holding a participant cookie.
+  return people.map((p) => ({
+    id: p.id,
+    displayName: displayNameFor(p, {
+      anonymous: session.anonymousMode,
+      viewerId,
+      viewerIsAdmin: false,
+    }),
+    isAdmin: p.isAdmin,
+    isYou: p.id === viewerId,
+  }));
+}
+
+/* ---------------------------------------------------------------- organiser */
+
+export type AdminActionResult = { ok: true } | { ok: false; reason: AdminFailure | "forbidden" };
+
+async function asAdmin(
+  sessionId: string,
+  adminToken: string,
+  run: () => Promise<AdminActionResult>,
+): Promise<AdminActionResult> {
+  // The organiser link is the credential, so it is proved on every call rather
+  // than trusted because the page rendered once.
+  if (!(await verifyAdmin(db, sessionId, adminToken))) {
+    return { ok: false, reason: "forbidden" };
+  }
+  return run();
+}
+
+export type AdminSettingsForm = {
+  title: string;
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+  maxParticipants: string;
+  anonymousMode: boolean;
+};
+
+export async function adminUpdateSettingsAction(
+  sessionId: string,
+  adminToken: string,
+  form: AdminSettingsForm,
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, async () => {
+    const startMinutes = timeToMinutes(form.startTime);
+    const endMinutes = timeToMinutes(form.endTime);
+    if (startMinutes === null || endMinutes === null) {
+      return { ok: false, reason: "invalid_time_window" };
+    }
+    const start = new Date(form.startDate);
+    const end = new Date(form.endDate);
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return { ok: false, reason: "invalid_date_range" };
+    }
+    const cap = Number(form.maxParticipants);
+    if (!Number.isInteger(cap)) return { ok: false, reason: "invalid_capacity" };
+
+    return updateSessionSettings(db, sessionId, {
+      title: form.title,
+      dateRangeStart: start,
+      dateRangeEnd: end,
+      dailyStartMinutes: startMinutes,
+      dailyEndMinutes: endMinutes,
+      maxParticipants: cap,
+      anonymousMode: form.anonymousMode,
+    });
+  });
+}
+
+export async function adminRemoveParticipantAction(
+  sessionId: string,
+  adminToken: string,
+  participantId: string,
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, () =>
+    removeParticipant(db, sessionId, participantId),
+  );
+}
+
+export async function adminResetPinAction(
+  sessionId: string,
+  adminToken: string,
+  participantId: string,
+  newPin: string,
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, () =>
+    resetPin(db, sessionId, participantId, newPin),
+  );
+}
+
+export async function adminRemoveActivityAction(
+  sessionId: string,
+  adminToken: string,
+  activityId: string,
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, () => removeActivity(db, sessionId, activityId));
+}
+
+export async function adminFinalizeAction(
+  sessionId: string,
+  adminToken: string,
+  form: { date: string; startTime: string; endTime: string; activityId: string | null },
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, async () => {
+    const startMinutes = timeToMinutes(form.startTime);
+    const endMinutes = timeToMinutes(form.endTime);
+    if (startMinutes === null || endMinutes === null) {
+      return { ok: false, reason: "invalid_time_window" };
+    }
+    const date = new Date(form.date);
+    if (Number.isNaN(date.getTime())) return { ok: false, reason: "invalid_date_range" };
+
+    return finalizeSession(db, sessionId, {
+      date,
+      startMinutes,
+      endMinutes,
+      activityId: form.activityId,
+    });
+  });
+}
+
+export async function adminReopenAction(
+  sessionId: string,
+  adminToken: string,
+): Promise<AdminActionResult> {
+  return asAdmin(sessionId, adminToken, () => reopenSession(db, sessionId));
 }

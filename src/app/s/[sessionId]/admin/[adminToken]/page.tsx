@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { db } from "@/db/client";
-import { participants, sessions } from "@/db/schema";
-import { Card, Tag } from "@/components/ui";
+import { activities, participants, sessions } from "@/db/schema";
+import { AdminPanel } from "@/components/admin-panel";
+import { Tag } from "@/components/ui";
 import { minutesToTime } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
+
+const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
 export default async function AdminPage({
   params,
@@ -22,18 +25,25 @@ export default async function AdminPage({
   // learns nothing about whether the session exists.
   if (!row || row.adminToken !== adminToken) notFound();
 
-  const people = await db
-    .select()
-    .from(participants)
-    .where(eq(participants.sessionId, sessionId))
-    .orderBy(asc(participants.createdAt));
+  const [people, pool] = await Promise.all([
+    db
+      .select()
+      .from(participants)
+      .where(eq(participants.sessionId, sessionId))
+      .orderBy(asc(participants.guestNumber)),
+    db
+      .select()
+      .from(activities)
+      .where(eq(activities.sessionId, sessionId))
+      .orderBy(asc(activities.createdAt)),
+  ]);
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-20 sm:py-24">
       <header className="rise">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-xs uppercase tracking-[0.16em] text-umber">Organiser view</p>
-          <Tag>{row.status === "open" ? "Open" : "Finalised"}</Tag>
+          <Tag>{row.status === "open" ? "Open" : "Settled"}</Tag>
         </div>
         <h1 className="mt-5 text-4xl">{row.title}</h1>
         <p className="mt-4 text-sm text-umber">
@@ -44,25 +54,36 @@ export default async function AdminPage({
       </header>
 
       <section className="mt-10">
-        <Card className="rise">
-          <h2 className="text-2xl">Who has joined</h2>
-          <p className="mt-2 text-sm text-umber">
-            PINs are shown so you can help anyone who forgets theirs.
-          </p>
-          <ul className="mt-6 divide-y divide-rule">
-            {people.map((p) => (
-              <li key={p.id} className="flex items-center justify-between gap-4 py-3">
-                <span className="flex items-center gap-3">
-                  <span>{p.name}</span>
-                  {p.isAdmin ? <Tag>Organiser</Tag> : null}
-                </span>
-                <code className="font-mono text-sm tracking-[0.3em] text-umber">
-                  {p.pin}
-                </code>
-              </li>
-            ))}
-          </ul>
-        </Card>
+        <AdminPanel
+          view={{
+            sessionId,
+            adminToken,
+            title: row.title,
+            startDate: isoDay(row.dateRangeStart),
+            endDate: isoDay(row.dateRangeEnd),
+            startTime: minutesToTime(row.dailyStartMinutes),
+            endTime: minutesToTime(row.dailyEndMinutes),
+            maxParticipants: row.maxParticipants,
+            anonymousMode: row.anonymousMode,
+            status: row.status,
+            finalDate: row.finalDate ? isoDay(row.finalDate) : null,
+            finalStartMinutes: row.finalStartMinutes,
+            finalEndMinutes: row.finalEndMinutes,
+            finalActivityId: row.finalActivityId,
+            people: people.map((p) => ({
+              id: p.id,
+              name: p.name,
+              pin: p.pin,
+              isAdmin: p.isAdmin,
+              guestNumber: p.guestNumber,
+            })),
+            activities: pool.map((a) => ({
+              id: a.id,
+              name: a.name,
+              locationName: a.locationName,
+            })),
+          }}
+        />
       </section>
     </main>
   );

@@ -27,6 +27,8 @@ import {
   type PoolEntry,
 } from "@/app/actions";
 import { Button, Field, Notice, QuietButton, Tag } from "@/components/ui";
+import { LocationMap, type MapPin } from "@/components/location-map";
+import { appleMapsTransitUrl, googleMapsTransitUrl } from "@/lib/map-links";
 
 const ADD_MESSAGES: Record<string, string> = {
   invalid_name: "Give the place a name.",
@@ -126,10 +128,12 @@ function SortableRow({
 export function ActivitiesPanel({
   sessionId,
   locked,
+  longdoKey,
   onIdentityLost,
 }: {
   sessionId: string;
   locked: boolean;
+  longdoKey: string | null;
   onIdentityLost: () => void;
 }) {
   const [pool, setPool] = useState<PoolEntry[]>([]);
@@ -207,6 +211,7 @@ export function ActivitiesPanel({
     const form = {
       name: String(fd.get("name") ?? ""),
       locationName: String(fd.get("locationName") ?? ""),
+      locationInput: String(fd.get("locationInput") ?? ""),
       imageInput: String(fd.get("imageInput") ?? ""),
     };
     const el = e.currentTarget;
@@ -224,6 +229,19 @@ export function ActivitiesPanel({
   }
 
   const topScore = group[0]?.score ?? 0;
+
+  const pins: MapPin[] = useMemo(
+    () =>
+      pool
+        .filter((p) => p.latitude !== null && p.longitude !== null)
+        .map((p) => ({
+          id: p.id,
+          name: p.name,
+          latitude: p.latitude as number,
+          longitude: p.longitude as number,
+        })),
+    [pool],
+  );
 
   return (
     <div>
@@ -271,6 +289,46 @@ export function ActivitiesPanel({
               </li>
             ))}
           </ol>
+        </div>
+      ) : null}
+
+      {/* Where they are */}
+      {pins.length > 0 ? (
+        <div className="mt-8">
+          <h3 className="text-xs uppercase tracking-[0.09em] text-umber">On the map</h3>
+          <LocationMap apiKey={longdoKey} pins={pins} />
+          <ul className="mt-4 space-y-2">
+            {pool
+              .filter((p) => p.latitude !== null || p.locationName)
+              .map((p) => {
+                const destination = {
+                  latitude: p.latitude,
+                  longitude: p.longitude,
+                  name: p.locationName ?? p.name,
+                };
+                return (
+                  <li key={p.id} className="flex flex-wrap items-center gap-3 text-sm">
+                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    <a
+                      href={googleMapsTransitUrl(destination)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="rounded-md border border-rule px-3 py-1 text-xs text-umber transition-colors hover:border-rule-strong hover:text-maroon"
+                    >
+                      Get there
+                    </a>
+                    <a
+                      href={appleMapsTransitUrl(destination)}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="text-xs text-umber underline decoration-rule-strong underline-offset-4"
+                    >
+                      Apple
+                    </a>
+                  </li>
+                );
+              })}
+          </ul>
         </div>
       ) : null}
 
@@ -343,6 +401,13 @@ export function ActivitiesPanel({
               </Field>
               <Field label="Where it is (optional)">
                 <input name="locationName" placeholder="Siam Square Soi 5" maxLength={200} />
+              </Field>
+              <Field label="Coordinates or map link (optional)">
+                <input
+                  name="locationInput"
+                  placeholder="13.7455, 100.5343 or a Google Maps link"
+                  maxLength={500}
+                />
               </Field>
               <Field label="Image or page link (optional)">
                 <input name="imageInput" placeholder="https://…" maxLength={500} />

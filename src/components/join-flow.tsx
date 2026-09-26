@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { joinSessionAction, resolveNameAction } from "@/app/actions";
+import { joinSessionAction, readRosterAction, resolveNameAction, type RosterEntry } from "@/app/actions";
 import {
   clearIdentity,
   readIdentity,
@@ -18,11 +18,13 @@ export function JoinFlow({
   title,
   window: win,
   locked,
+  longdoKey,
 }: {
   sessionId: string;
   title: string;
   window: GridWindow;
   locked: boolean;
+  longdoKey: string | null;
 }) {
   // Undefined until the browser has been checked, so the form never flashes
   // in front of someone this device already knows.
@@ -33,9 +35,18 @@ export function JoinFlow({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  const [roster, setRoster] = useState<RosterEntry[]>([]);
+
   useEffect(() => {
     setIdentity(readIdentity(window.localStorage, sessionId));
   }, [sessionId]);
+
+  // Names shown here honour anonymous mode; the server decides what this
+  // viewer is allowed to see.
+  useEffect(() => {
+    if (!identity) return;
+    void readRosterAction(sessionId).then((r) => setRoster(r ?? []));
+  }, [identity, sessionId]);
 
   function submitName(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -105,6 +116,22 @@ export function JoinFlow({
             Not you
           </QuietButton>
         </div>
+        {roster.length > 0 ? (
+          <ul className="mt-6 flex flex-wrap gap-2 border-t border-rule pt-6">
+            {roster.map((r) => (
+              <li
+                key={r.id}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  r.isYou ? "border-maroon/40 text-maroon" : "border-rule text-umber"
+                }`}
+              >
+                {r.displayName}
+                {r.isAdmin ? " · organiser" : ""}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         <div className="mt-8 border-t border-rule pt-8">
           <AvailabilityGrid
             sessionId={sessionId}
@@ -117,6 +144,7 @@ export function JoinFlow({
           <ActivitiesPanel
             sessionId={sessionId}
             locked={locked}
+            longdoKey={longdoKey}
             onIdentityLost={startOver}
           />
         </div>
